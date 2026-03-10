@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writing Knowledge Graph</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0f1117; color: #e0e0e0; overflow: hidden; }
+
+#controls {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  background: rgba(15, 17, 23, 0.95); border-bottom: 1px solid #2a2d35;
+  padding: 12px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+#controls h1 { font-size: 16px; font-weight: 600; color: #fff; white-space: nowrap; }
+.filter-group { display: flex; gap: 6px; align-items: center; }
+.filter-group label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+.filter-btn {
+  padding: 4px 10px; border-radius: 4px; border: 1px solid #333; background: #1a1d25;
+  color: #aaa; font-size: 12px; cursor: pointer; transition: all 0.15s;
+}
+.filter-btn:hover { border-color: #555; color: #fff; }
+.filter-btn.active { border-color: #666; color: #fff; }
+.filter-btn.active[data-strand="Composition"] { background: #1a3a5c; border-color: #3b82f6; color: #93c5fd; }
+.filter-btn.active[data-strand="Mechanics"] { background: #1a4a3a; border-color: #10b981; color: #6ee7b7; }
+.filter-btn.active[data-strand="Discourse"] { background: #3a1a4a; border-color: #8b5cf6; color: #c4b5fd; }
+.filter-btn.active[data-type="Discrimination"] { background: #4a3a1a; border-color: #f59e0b; color: #fcd34d; }
+.filter-btn.active[data-type="Production"] { background: #1a3a5c; border-color: #3b82f6; color: #93c5fd; }
+.filter-btn.active[data-type="Structure"] { background: #1a4a3a; border-color: #10b981; color: #6ee7b7; }
+.filter-btn.active[data-type="Integrative"] { background: #3a1a4a; border-color: #8b5cf6; color: #c4b5fd; }
+.filter-btn.active[data-grade] { background: #2a2d35; border-color: #666; color: #fff; }
+
+#stats {
+  font-size: 11px; color: #666; margin-left: auto; white-space: nowrap;
+}
+
+#tooltip {
+  position: fixed; display: none; background: rgba(20, 22, 30, 0.97);
+  border: 1px solid #3a3d45; border-radius: 8px; padding: 14px 16px;
+  max-width: 360px; font-size: 13px; z-index: 20; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+#tooltip .tt-id { font-size: 11px; color: #888; margin-bottom: 2px; }
+#tooltip .tt-name { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 6px; }
+#tooltip .tt-badges { display: flex; gap: 6px; margin-bottom: 8px; }
+#tooltip .tt-badge {
+  font-size: 10px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+  letter-spacing: 0.3px; font-weight: 600;
+}
+#tooltip .tt-desc { font-size: 12px; color: #aaa; line-height: 1.5; }
+#tooltip .tt-gateway { color: #ef4444; font-weight: 600; font-size: 11px; margin-top: 6px; }
+
+#legend {
+  position: fixed; bottom: 16px; left: 16px; z-index: 10;
+  background: rgba(15, 17, 23, 0.9); border: 1px solid #2a2d35;
+  border-radius: 8px; padding: 12px 16px; font-size: 11px;
+}
+#legend h3 { font-size: 12px; margin-bottom: 8px; color: #fff; }
+.legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.legend-circle { width: 12px; height: 12px; border-radius: 50%; }
+.legend-diamond { width: 10px; height: 10px; transform: rotate(45deg); }
+.legend-line { width: 20px; height: 2px; }
+
+svg { width: 100vw; height: 100vh; }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <h1>Writing Knowledge Graph</h1>
+  <div class="filter-group">
+    <label>Strand:</label>
+    <button class="filter-btn active" data-strand="Composition" onclick="toggleFilter(this,'strand')">Composition</button>
+    <button class="filter-btn active" data-strand="Mechanics" onclick="toggleFilter(this,'strand')">Mechanics</button>
+    <button class="filter-btn active" data-strand="Discourse" onclick="toggleFilter(this,'strand')">Discourse</button>
+  </div>
+  <div class="filter-group">
+    <label>Grade:</label>
+    <button class="filter-btn active" data-grade="K-2" onclick="toggleFilter(this,'grade')">K-2</button>
+    <button class="filter-btn active" data-grade="3-5" onclick="toggleFilter(this,'grade')">3-5</button>
+    <button class="filter-btn active" data-grade="6-8" onclick="toggleFilter(this,'grade')">6-8</button>
+    <button class="filter-btn active" data-grade="9-12" onclick="toggleFilter(this,'grade')">9-12</button>
+  </div>
+  <div class="filter-group">
+    <label>Type:</label>
+    <button class="filter-btn active" data-type="Discrimination" onclick="toggleFilter(this,'type')">D</button>
+    <button class="filter-btn active" data-type="Production" onclick="toggleFilter(this,'type')">P</button>
+    <button class="filter-btn active" data-type="Structure" onclick="toggleFilter(this,'type')">S</button>
+    <button class="filter-btn active" data-type="Integrative" onclick="toggleFilter(this,'type')">I</button>
+  </div>
+  <div class="filter-group">
+    <label></label>
+    <button class="filter-btn" id="gatewayBtn" onclick="toggleGateway()">Gateways Only</button>
+  </div>
+  <div id="stats"></div>
+</div>
+
+<div id="tooltip">
+  <div class="tt-id"></div>
+  <div class="tt-name"></div>
+  <div class="tt-badges"></div>
+  <div class="tt-desc"></div>
+  <div class="tt-gateway"></div>
+</div>
+
+<div id="legend">
+  <h3>Legend</h3>
+  <div class="legend-row"><div class="legend-circle" style="background:#3b82f6"></div> Composition</div>
+  <div class="legend-row"><div class="legend-circle" style="background:#10b981"></div> Mechanics</div>
+  <div class="legend-row"><div class="legend-circle" style="background:#8b5cf6"></div> Discourse</div>
+  <div style="height:6px"></div>
+  <div class="legend-row"><div class="legend-circle" style="background:#555;width:10px;height:10px"></div> Regular KC</div>
+  <div class="legend-row"><div class="legend-diamond" style="background:#ef4444;width:10px;height:10px"></div> Gateway KC</div>
+  <div style="height:6px"></div>
+  <div class="legend-row"><div class="legend-line" style="background:#333"></div> Prerequisite</div>
+  <div class="legend-row"><div class="legend-line" style="background:#f59e0b"></div> Cross-strand</div>
+</div>
+
+<svg></svg>
+
+<script>
+const strandColors = { Composition: '#3b82f6', Mechanics: '#10b981', Discourse: '#8b5cf6' };
+const typeShapes = { Discrimination: 'circle', Production: 'circle', Structure: 'square', Integrative: 'diamond' };
+const gradeToband = g => {
+  if ('K012'.includes(g) || g === 'K') return 'K-2';
+  if ('345'.includes(g)) return '3-5';
+  if ('678'.includes(g)) return '6-8';
+  return '9-12';
+};
+const gradeOrder = { K: 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, '11': 11, '12': 12 };
+
+let activeFilters = {
+  strand: new Set(['Composition', 'Mechanics', 'Discourse']),
+  grade: new Set(['K-2', '3-5', '6-8', '9-12']),
+  type: new Set(['Discrimination', 'Production', 'Structure', 'Integrative']),
+  gatewayOnly: false
+};
+
+function toggleFilter(el, filterType) {
+  el.classList.toggle('active');
+  const val = el.dataset[filterType];
+  if (activeFilters[filterType].has(val)) activeFilters[filterType].delete(val);
+  else activeFilters[filterType].add(val);
+  updateVisibility();
+}
+function toggleGateway() {
+  activeFilters.gatewayOnly = !activeFilters.gatewayOnly;
+  document.getElementById('gatewayBtn').classList.toggle('active');
+  updateVisibility();
+}
+
+function isNodeVisible(d) {
+  if (activeFilters.gatewayOnly && !d.gateway) return false;
+  if (!activeFilters.strand.has(d.strand)) return false;
+  if (!activeFilters.grade.has(gradeToband(d.grade))) return false;
+  if (!activeFilters.type.has(d.type)) return false;
+  return true;
+}
+
+function updateVisibility() {
+  const visibleIds = new Set();
+  nodeGroup.each(function(d) {
+    const vis = isNodeVisible(d);
+    d3.select(this).style('opacity', vis ? 1 : 0.06).style('pointer-events', vis ? 'all' : 'none');
+    if (vis) visibleIds.add(d.id);
+  });
+  linkGroup.each(function(d) {
+    const vis = visibleIds.has(d.source.id) && visibleIds.has(d.target.id);
+    d3.select(this).style('opacity', vis ? (d.crossStrand ? 0.5 : 0.3) : 0.02);
+  });
+  document.getElementById('stats').textContent = `${visibleIds.size} / ${graphData.nodes.length} KCs`;
+}
+
+let graphData, simulation, nodeGroup, linkGroup;
+
+fetch('graph-data.json').then(r => r.json()).then(data => {
+  graphData = data;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  const svg = d3.select('svg')
+    .attr('viewBox', [0, 0, width, height])
+    .call(d3.zoom().scaleExtent([0.15, 4]).on('zoom', e => g.attr('transform', e.transform)));
+
+  const g = svg.append('g');
+
+  // Position nodes by grade (x) and strand (y offset)
+  const strandYOffset = { Composition: -80, Mechanics: 0, Discourse: 80 };
+  const nodeMap = {};
+  data.nodes.forEach(n => {
+    n.x = 100 + gradeOrder[n.grade] * (width - 200) / 12;
+    n.y = height / 2 + strandYOffset[n.strand] + (Math.random() - 0.5) * 120;
+    nodeMap[n.id] = n;
+  });
+
+  const links = data.edges.map(e => ({
+    source: nodeMap[e.from],
+    target: nodeMap[e.to],
+    crossStrand: e.crossStrand || false
+  })).filter(e => e.source && e.target);
+
+  svg.append('defs').append('marker')
+    .attr('id', 'arrow').attr('viewBox', '0 0 10 6').attr('refX', 10).attr('refY', 3)
+    .attr('markerWidth', 8).attr('markerHeight', 6).attr('orient', 'auto')
+    .append('path').attr('d', 'M0,0L10,3L0,6').attr('fill', '#444');
+
+  svg.append('defs').append('marker')
+    .attr('id', 'arrow-cross').attr('viewBox', '0 0 10 6').attr('refX', 10).attr('refY', 3)
+    .attr('markerWidth', 8).attr('markerHeight', 6).attr('orient', 'auto')
+    .append('path').attr('d', 'M0,0L10,3L0,6').attr('fill', '#f59e0b');
+
+  linkGroup = g.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke', d => d.crossStrand ? '#f59e0b' : '#333')
+    .attr('stroke-width', d => d.crossStrand ? 1.5 : 1)
+    .attr('stroke-dasharray', d => d.crossStrand ? '4,3' : 'none')
+    .attr('opacity', d => d.crossStrand ? 0.5 : 0.3)
+    .attr('marker-end', d => d.crossStrand ? 'url(#arrow-cross)' : 'url(#arrow)');
+
+  nodeGroup = g.append('g').selectAll('g').data(data.nodes).join('g')
+    .attr('cursor', 'pointer')
+    .call(d3.drag()
+      .on('start', (e, d) => { if (!e.active) simulation.alphaTarget(0.1).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+    );
+
+  nodeGroup.each(function(d) {
+    const el = d3.select(this);
+    const r = d.gateway ? 8 : 5;
+    const color = strandColors[d.strand];
+    if (d.gateway) {
+      el.append('rect')
+        .attr('width', r * 2).attr('height', r * 2)
+        .attr('x', -r).attr('y', -r)
+        .attr('transform', 'rotate(45)')
+        .attr('fill', '#ef4444').attr('stroke', '#ff6b6b').attr('stroke-width', 1.5);
+    } else {
+      el.append('circle')
+        .attr('r', r)
+        .attr('fill', color)
+        .attr('stroke', d3.color(color).brighter(0.8))
+        .attr('stroke-width', 1);
+    }
+    el.append('text')
+      .attr('dy', d.gateway ? -14 : -10)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#888')
+      .attr('font-size', '8px')
+      .text(d.id);
+  });
+
+  nodeGroup.on('mouseover', (e, d) => {
+    const tt = document.getElementById('tooltip');
+    tt.style.display = 'block';
+    tt.querySelector('.tt-id').textContent = d.id;
+    tt.querySelector('.tt-name').textContent = d.name;
+    tt.querySelector('.tt-badges').innerHTML =
+      `<span class="tt-badge" style="background:${strandColors[d.strand]}33;color:${strandColors[d.strand]}">${d.strand}</span>` +
+      `<span class="tt-badge" style="background:#333;color:#aaa">Grade ${d.grade}</span>` +
+      `<span class="tt-badge" style="background:#333;color:#aaa">${d.type}</span>`;
+    tt.querySelector('.tt-desc').textContent = d.description;
+    tt.querySelector('.tt-gateway').textContent = d.gateway ? 'GATEWAY KC - Failure blocks all downstream learning' : '';
+    tt.style.left = Math.min(e.pageX + 16, window.innerWidth - 380) + 'px';
+    tt.style.top = Math.min(e.pageY - 10, window.innerHeight - 200) + 'px';
+
+    // Highlight connected nodes
+    const connectedIds = new Set([d.id]);
+    links.forEach(l => {
+      if (l.source.id === d.id) connectedIds.add(l.target.id);
+      if (l.target.id === d.id) connectedIds.add(l.source.id);
+    });
+    nodeGroup.style('opacity', n => connectedIds.has(n.id) ? 1 : 0.15);
+    linkGroup.style('opacity', l => (l.source.id === d.id || l.target.id === d.id) ? 0.8 : 0.03);
+  })
+  .on('mouseout', () => {
+    document.getElementById('tooltip').style.display = 'none';
+    updateVisibility();
+  });
+
+  simulation = d3.forceSimulation(data.nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(40).strength(0.3))
+    .force('charge', d3.forceManyBody().strength(-60))
+    .force('x', d3.forceX(d => 100 + gradeOrder[d.grade] * (width - 200) / 12).strength(0.4))
+    .force('y', d3.forceY(d => {
+      const base = height / 2;
+      const offset = { Composition: -150, Mechanics: 0, Discourse: 150 };
+      return base + offset[d.strand];
+    }).strength(0.3))
+    .force('collide', d3.forceCollide(12))
+    .on('tick', () => {
+      linkGroup.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      nodeGroup.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+  // Initial zoom to fit
+  setTimeout(() => {
+    const bounds = g.node().getBBox();
+    const dx = bounds.width, dy = bounds.height;
+    const x = bounds.x, y = bounds.y;
+    const scale = 0.85 / Math.max(dx / width, dy / height);
+    const translate = [width / 2 - scale * (x + dx / 2), height / 2 - scale * (y + dy / 2)];
+    svg.transition().duration(750)
+      .call(d3.zoom().scaleExtent([0.15, 4]).on('zoom', e => g.attr('transform', e.transform))
+        .transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+  }, 2000);
+
+  updateVisibility();
+});
+</script>
+</body>
+</html>
