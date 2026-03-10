@@ -6,147 +6,123 @@
 <title>Writing Knowledge Graph</title>
 <script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-:root {
-  --comp: #3b82f6; --mech: #10b981; --disc: #8b5cf6;
-  --bg: #0a0c10; --surface: #12141b; --border: #1e2028;
-  --text: #e0e0e0; --muted: #666; --dim: #333;
-}
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; height: 100vh; }
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #080a12; color: #e0e0e0; overflow: hidden; height: 100vh; }
 
 #topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 46px;
-  background: rgba(10,12,16,0.97); border-bottom: 1px solid var(--border);
-  padding: 0 16px; display: flex; align-items: center; gap: 12px;
-  backdrop-filter: blur(12px);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: 44px;
+  background: rgba(8,10,18,0.92); border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 0 16px; display: flex; align-items: center; gap: 14px;
+  backdrop-filter: blur(16px);
 }
-#topbar h1 { font-size: 15px; font-weight: 600; color: #fff; white-space: nowrap; }
-.sep { width: 1px; height: 22px; background: #2a2d38; flex-shrink: 0; }
+#topbar h1 { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9); white-space: nowrap; letter-spacing: -0.3px; }
+.sep { width: 1px; height: 20px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
 
-.view-tabs { display: flex; gap: 2px; }
-.vtab {
-  padding: 5px 12px; border-radius: 5px; border: 1px solid transparent; background: none;
-  color: #666; font-size: 12px; cursor: pointer; transition: all 0.15s; font-family: inherit; font-weight: 500;
-}
-.vtab:hover { color: #aaa; background: #1a1d25; }
-.vtab.active { color: #fff; background: #1e2028; border-color: #333; }
-
-#controls { display: flex; align-items: center; gap: 8px; margin-left: 4px; }
-.ctrl-select {
-  padding: 4px 8px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface);
-  color: #ccc; font-size: 12px; font-family: inherit; outline: none; cursor: pointer;
-}
-.ctrl-select:focus { border-color: var(--comp); }
+.filter-group { display: flex; gap: 3px; align-items: center; }
+.filter-group label { font-size: 9px; color: rgba(255,255,255,0.25); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 2px; }
 .fbtn {
-  padding: 3px 8px; border-radius: 4px; border: 1px solid #252830; background: #13151b;
-  color: #777; font-size: 11px; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  padding: 3px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: transparent;
+  color: rgba(255,255,255,0.3); font-size: 11px; cursor: pointer; transition: all 0.2s; font-family: inherit;
 }
-.fbtn:hover { border-color: #444; color: #ccc; }
-.fbtn.on { color: #fff; background: #1e2028; border-color: #555; }
+.fbtn:hover { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.5); }
+.fbtn.on { border-color: rgba(255,255,255,0.25); }
+.fbtn.on[data-strand="Composition"] { background: rgba(59,130,246,0.15); color: #7cb3f4; border-color: rgba(59,130,246,0.3); }
+.fbtn.on[data-strand="Mechanics"] { background: rgba(16,185,129,0.15); color: #6ee7b7; border-color: rgba(16,185,129,0.3); }
+.fbtn.on[data-strand="Discourse"] { background: rgba(139,92,246,0.15); color: #c4b5fd; border-color: rgba(139,92,246,0.3); }
+.fbtn.on.gw-btn { background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.25); }
+
 #search-box {
-  padding: 4px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--surface);
-  color: #ccc; font-size: 12px; font-family: inherit; width: 200px; outline: none;
+  padding: 4px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03);
+  color: #ccc; font-size: 11px; font-family: inherit; width: 180px; outline: none;
 }
-#search-box:focus { border-color: var(--comp); }
-#search-box::placeholder { color: #555; }
-#view-info { font-size: 10px; color: #555; margin-left: auto; white-space: nowrap; }
+#search-box:focus { border-color: rgba(59,130,246,0.4); }
+#search-box::placeholder { color: rgba(255,255,255,0.2); }
+#stats { font-size: 9px; color: rgba(255,255,255,0.2); margin-left: auto; white-space: nowrap; }
+
+/* Tooltip */
+#tooltip {
+  position: fixed; z-index: 30; pointer-events: none;
+  background: rgba(10,12,20,0.95); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 10px 14px; max-width: 280px;
+  backdrop-filter: blur(12px); display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+#tooltip .tt-id { font-size: 10px; font-family: monospace; color: rgba(255,255,255,0.35); margin-bottom: 2px; }
+#tooltip .tt-name { font-size: 13px; font-weight: 600; color: #fff; margin-bottom: 4px; line-height: 1.3; }
+#tooltip .tt-meta { font-size: 10px; color: rgba(255,255,255,0.4); margin-bottom: 4px; }
+#tooltip .tt-desc { font-size: 11px; color: rgba(255,255,255,0.55); line-height: 1.4; }
+#tooltip .tt-gw { font-size: 10px; color: #ef4444; font-weight: 600; margin-top: 4px; }
 
 /* Detail Panel */
 #panel {
-  position: fixed; top: 46px; right: 0; bottom: 0; width: 340px; z-index: 15;
-  background: rgba(13,15,20,0.97); border-left: 1px solid var(--border);
-  padding: 20px; overflow-y: auto; transform: translateX(340px);
-  transition: transform 0.25s ease; backdrop-filter: blur(12px);
+  position: fixed; top: 44px; right: 0; bottom: 0; width: 320px; z-index: 15;
+  background: rgba(10,12,20,0.96); border-left: 1px solid rgba(255,255,255,0.06);
+  padding: 20px; overflow-y: auto; transform: translateX(320px);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(16px);
 }
 #panel.open { transform: translateX(0); }
 #panel .close-btn {
-  position: absolute; top: 10px; right: 12px; background: none; border: none;
-  color: #666; font-size: 18px; cursor: pointer;
+  position: absolute; top: 8px; right: 10px; background: none; border: none;
+  color: rgba(255,255,255,0.3); font-size: 18px; cursor: pointer;
 }
 #panel .close-btn:hover { color: #fff; }
-.p-id { font-size: 11px; color: #666; font-family: monospace; margin-bottom: 4px; }
-.p-name { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 10px; line-height: 1.3; }
-.p-badges { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-.p-badge { font-size: 10px; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
-.p-desc { font-size: 13px; color: #aaa; line-height: 1.6; margin-bottom: 16px; }
-.p-gateway { color: #ef4444; font-weight: 600; font-size: 12px; margin-bottom: 16px; padding: 8px 10px; background: rgba(239,68,68,0.1); border-radius: 6px; border: 1px solid rgba(239,68,68,0.2); }
-.p-section { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; margin-top: 14px; }
-.p-list { list-style: none; margin-bottom: 8px; }
-.p-list li { font-size: 12px; color: #aaa; padding: 5px 8px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
-.p-list li:hover { background: #1a1d25; color: #fff; }
-.pdot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-
-/* Legend */
-#legend {
-  position: fixed; bottom: 16px; left: 16px; z-index: 15;
-  background: rgba(13,15,20,0.92); border: 1px solid var(--border);
-  border-radius: 8px; padding: 12px 16px; font-size: 11px; backdrop-filter: blur(8px);
-}
-#legend h3 { font-size: 10px; margin-bottom: 8px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-.lr { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; color: #777; }
-.lr .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.lr .diamond { width: 8px; height: 8px; transform: rotate(45deg); flex-shrink: 0; border-radius: 1px; }
-.lr .line-s { width: 20px; border-top: 1.5px solid #555; }
-.lr .line-d { width: 20px; border-top: 1.5px dashed #f59e0b; }
-#legend-hint { color: #444; font-size: 10px; margin-top: 6px; }
+.p-id { font-size: 10px; color: rgba(255,255,255,0.3); font-family: monospace; margin-bottom: 3px; }
+.p-name { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 8px; line-height: 1.3; }
+.p-badges { display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap; }
+.p-badge { font-size: 9px; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+.p-desc { font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5; margin-bottom: 14px; }
+.p-gateway { color: #ef4444; font-weight: 600; font-size: 11px; margin-bottom: 14px; padding: 6px 10px; background: rgba(239,68,68,0.08); border-radius: 6px; border: 1px solid rgba(239,68,68,0.15); }
+.p-section { font-size: 9px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; margin-top: 12px; }
+.p-list { list-style: none; margin-bottom: 6px; }
+.p-list li { font-size: 11px; color: rgba(255,255,255,0.5); padding: 4px 8px; margin-bottom: 1px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+.p-list li:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.pdot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
 
 /* Canvas */
-#canvas { position: fixed; top: 46px; left: 0; right: 0; bottom: 0; }
+#canvas { position: fixed; top: 44px; left: 0; right: 0; bottom: 0; }
 svg { width: 100%; height: 100%; }
 
-/* Swim lane backgrounds and labels */
-.lane-bg { opacity: 0.025; }
-.lane-label { font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.12; font-size: 48px; }
-.lane-divider { stroke: #181a22; stroke-width: 1; stroke-dasharray: 6,6; }
-.lane-sub { font-size: 12px; opacity: 0.3; text-transform: uppercase; letter-spacing: 0.5px; }
-
 /* Edges */
-.edge { fill: none; stroke-width: 1; opacity: 0.15; }
-.edge.cross { stroke-dasharray: 4,3; opacity: 0.18; }
-.edge.hl { opacity: 0.85; stroke-width: 2; }
-.edge.dim { opacity: 0.02; }
+.edge-line { stroke-width: 0.4; opacity: 0.08; }
+.edge-line.cross { stroke-dasharray: 3,3; opacity: 0.06; }
+.edge-line.hl { opacity: 0.5; stroke-width: 1.2; }
+.edge-line.dim { opacity: 0; }
 
-/* Pill nodes */
-.pill { cursor: pointer; }
-.pill rect { transition: filter 0.15s, opacity 0.15s; }
-.pill text { pointer-events: none; }
-.pill.hl .pill-bg { filter: brightness(1.4); }
-.pill.hl .pill-name { fill: #fff !important; }
-.pill.dim { opacity: 0.05; pointer-events: none; }
-.pill.sel .pill-bg { filter: drop-shadow(0 0 8px rgba(255,255,255,0.5)) brightness(1.5); }
-.pill.search-match .pill-bg { stroke-width: 2 !important; }
-.pill.search-match .pill-name { fill: #fbbf24 !important; }
-
-.pill-bg { rx: 4; ry: 4; }
-.pill-bg-gw { rx: 4; ry: 4; }
-.pill-id { font-size: 7px; font-family: monospace; }
-.pill-name { font-size: 9px; font-weight: 500; }
-.pill-gw { font-size: 6px; fill: #ef4444; font-weight: 800; letter-spacing: 0.3px; }
-
-/* Neighborhood node cards */
-.node-card { fill: #161922; rx: 6; ry: 6; }
-.node-card-gw { fill: #1c1215; rx: 6; ry: 6; }
-.node-id-text { font-size: 9px; fill: #555; font-family: monospace; }
-.node-name-text { font-size: 11px; fill: #ccc; font-weight: 500; }
-.node-type-text { font-size: 8px; fill: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-.gw-indicator { font-size: 8px; fill: #ef4444; font-weight: 700; }
-.nnode { cursor: pointer; }
-.nnode.hl text { fill: #fff !important; }
-.nnode.dim { opacity: 0.06; pointer-events: none; }
-.nnode.sel rect { filter: drop-shadow(0 0 10px rgba(255,255,255,0.5)); }
+/* Nodes */
+.node-dot { cursor: pointer; transition: opacity 0.2s; }
+.node-dot.dim { opacity: 0.03; }
+.node-dot.hl .glow { opacity: 0.6; }
+.node-dot.sel .glow { opacity: 0.9; }
+.node-dot .core { transition: r 0.2s; }
+.node-dot.hl .core { }
+.node-dot .label { display: none; pointer-events: none; }
+.node-dot.hl .label, .node-dot.sel .label { display: block; }
+.node-dot.search-hit .core { stroke-width: 2; stroke: #fbbf24; }
+.node-dot.search-hit .label { display: block; fill: #fbbf24 !important; }
 </style>
 </head>
 <body>
 <div id="topbar">
   <h1>Writing Knowledge Graph</h1>
   <div class="sep"></div>
-  <div class="view-tabs">
-    <button class="vtab active" data-view="overview" onclick="switchView('overview')">Overview</button>
-    <button class="vtab" data-view="neighborhood" onclick="switchView('neighborhood')">Neighborhood</button>
+  <div class="filter-group">
+    <button class="fbtn on" data-strand="Composition" onclick="toggleStrand(this)">Composition</button>
+    <button class="fbtn on" data-strand="Mechanics" onclick="toggleStrand(this)">Mechanics</button>
+    <button class="fbtn on" data-strand="Discourse" onclick="toggleStrand(this)">Discourse</button>
   </div>
   <div class="sep"></div>
-  <div id="controls"></div>
-  <div id="view-info"></div>
+  <button class="fbtn gw-btn" id="gwBtn" onclick="toggleGW()">Gateways</button>
+  <div class="sep"></div>
+  <input type="text" id="search-box" placeholder="Search..." oninput="onSearch(this.value)">
+  <div id="stats"></div>
+</div>
+
+<div id="tooltip">
+  <div class="tt-id"></div>
+  <div class="tt-name"></div>
+  <div class="tt-meta"></div>
+  <div class="tt-desc"></div>
+  <div class="tt-gw"></div>
 </div>
 
 <div id="panel">
@@ -162,531 +138,261 @@ svg { width: 100%; height: 100%; }
   <ul class="p-list" id="dep-list"></ul>
 </div>
 
-<div id="legend">
-  <h3>Legend</h3>
-  <div class="lr"><div class="dot" style="background:var(--comp)"></div> Composition (92)</div>
-  <div class="lr"><div class="dot" style="background:var(--mech)"></div> Mechanics (40)</div>
-  <div class="lr"><div class="dot" style="background:var(--disc)"></div> Discourse (24)</div>
-  <div style="height:4px"></div>
-  <div class="lr"><div class="diamond" style="background:#ef4444"></div> Gateway KC</div>
-  <div class="lr"><div class="line-s"></div> Prerequisite</div>
-  <div class="lr"><div class="line-d"></div> Cross-strand</div>
-  <div id="legend-hint">Click node to select chain<br>Click canvas to reset</div>
-</div>
-
 <div id="canvas"><svg></svg></div>
 
 <script>
 var SC = { Composition: "#3b82f6", Mechanics: "#10b981", Discourse: "#8b5cf6" };
 var STRANDS = ["Composition", "Mechanics", "Discourse"];
+var GRADES = ["K","1","2","3","4","5","6","7","8","9","10","11","12"];
+var GRADE_X = {}; GRADES.forEach(function(g, i) { GRADE_X[g] = i; });
 
 var DATA, nodeMap, prereqMap, depMap, edgeList;
-var currentView = "overview";
-var selectedNode = null;
-var searchTerm = "";
-var gatewayOnly = false;
-var svg, gMain, zoomBehavior;
+var selectedNode = null, searchTerm = "", gatewayOnly = false;
+var strandFilter = new Set(STRANDS);
+var svg, gMain, zoomB, simulation;
 
 fetch("graph-data.json").then(function(r) { return r.json(); }).then(function(raw) {
   DATA = raw;
-  nodeMap = {};
-  prereqMap = {};
-  depMap = {};
-  DATA.nodes.forEach(function(n) { nodeMap[n.id] = n; prereqMap[n.id] = []; depMap[n.id] = []; });
-  DATA.edges.forEach(function(e) { prereqMap[e.to].push(e.from); depMap[e.from].push(e.to); });
+  nodeMap = {}; prereqMap = {}; depMap = {};
+  DATA.nodes.forEach(function(n) {
+    nodeMap[n.id] = n; prereqMap[n.id] = []; depMap[n.id] = [];
+    // Compute degree for sizing
+    n.deg = 0;
+  });
+  DATA.edges.forEach(function(e) {
+    prereqMap[e.to].push(e.from); depMap[e.from].push(e.to);
+    if (nodeMap[e.from]) nodeMap[e.from].deg++;
+    if (nodeMap[e.to]) nodeMap[e.to].deg++;
+  });
   edgeList = DATA.edges;
-  initCanvas();
-  switchView("overview");
+  init();
 });
 
-function initCanvas() {
+function init() {
+  var w = window.innerWidth, h = window.innerHeight - 44;
   svg = d3.select("#canvas svg");
-  zoomBehavior = d3.zoom().scaleExtent([0.04, 5]).on("zoom", function(e) { gMain.attr("transform", e.transform); });
-  svg.call(zoomBehavior).on("click", function(e) {
-    if (e.target.tagName === "svg" || (e.target.tagName === "rect" && e.target.classList.contains("bg-click"))) deselectNode();
+  zoomB = d3.zoom().scaleExtent([0.15, 8]).on("zoom", function(e) { gMain.attr("transform", e.transform); });
+  svg.call(zoomB).on("click", function(e) {
+    if (e.target.tagName === "svg") { deselectNode(); }
   });
   gMain = svg.append("g");
-  gMain.append("rect").attr("class", "bg-click").attr("x", -90000).attr("y", -90000).attr("width", 180000).attr("height", 180000).attr("fill", "transparent");
-}
 
-// ── DAG Layout Engine ──
-function dagLayout(nodeIds, edges, opts) {
-  opts = opts || {};
-  var nw = opts.nodeW || 140, nh = opts.nodeH || 28;
-  var lgap = opts.layerGap || 60, ngap = opts.nodeGap || 10;
+  // SVG filters for glow
+  var defs = svg.append("defs");
+  var glow = defs.append("filter").attr("id", "glow").attr("x", "-50%").attr("y", "-50%").attr("width", "200%").attr("height", "200%");
+  glow.append("feGaussianBlur").attr("stdDeviation", "3").attr("result", "blur");
+  glow.append("feMerge").selectAll("feMergeNode").data(["blur", "SourceGraphic"]).join("feMergeNode").attr("in", function(d) { return d; });
 
-  var idSet = new Set(nodeIds);
-  var myEdges = edges.filter(function(e) { return idSet.has(e.from) && idSet.has(e.to); });
-
-  var adj = {}, radj = {};
-  nodeIds.forEach(function(id) { adj[id] = []; radj[id] = []; });
-  myEdges.forEach(function(e) { adj[e.from].push(e.to); radj[e.to].push(e.from); });
-
-  // Kahn's topological sort
-  var inDeg = {};
-  nodeIds.forEach(function(id) { inDeg[id] = 0; });
-  myEdges.forEach(function(e) { inDeg[e.to]++; });
-  var queue = nodeIds.filter(function(id) { return inDeg[id] === 0; });
-  var topo = [];
-  while (queue.length > 0) {
-    var cur = queue.shift(); topo.push(cur);
-    adj[cur].forEach(function(nx) { inDeg[nx]--; if (inDeg[nx] === 0) queue.push(nx); });
-  }
-  if (topo.length < nodeIds.length) nodeIds.forEach(function(id) { if (topo.indexOf(id) === -1) topo.push(id); });
-
-  // Longest-path layering
-  var layer = {};
-  topo.forEach(function(id) {
-    var mx = -1;
-    radj[id].forEach(function(p) { if (layer[p] !== undefined && layer[p] > mx) mx = layer[p]; });
-    layer[id] = mx + 1;
+  // Arrowheads
+  [["arr","rgba(255,255,255,0.3)"],["arr-cross","rgba(245,158,11,0.4)"]].forEach(function(p) {
+    defs.append("marker").attr("id",p[0]).attr("viewBox","0 0 6 4").attr("refX",6).attr("refY",2)
+      .attr("markerWidth",5).attr("markerHeight",3).attr("orient","auto")
+      .append("path").attr("d","M0,0.3L5,2L0,3.7").attr("fill",p[1]);
   });
 
-  var layers = {}, maxL = 0;
-  nodeIds.forEach(function(id) { var l = layer[id]; if (!layers[l]) layers[l] = []; layers[l].push(id); if (l > maxL) maxL = l; });
-
-  // Barycenter ordering (4 passes)
-  for (var pass = 0; pass < 4; pass++) {
-    for (var l = 1; l <= maxL; l++) {
-      var ln = layers[l], prev = layers[l-1] || [];
-      var pp = {}; prev.forEach(function(id, i) { pp[id] = i; });
-      ln.sort(function(a, b) {
-        var pa = radj[a].filter(function(p) { return pp[p] !== undefined; });
-        var pb = radj[b].filter(function(p) { return pp[p] !== undefined; });
-        var ba = pa.length > 0 ? pa.reduce(function(s, p) { return s + pp[p]; }, 0) / pa.length : 0;
-        var bb = pb.length > 0 ? pb.reduce(function(s, p) { return s + pp[p]; }, 0) / pb.length : 0;
-        return ba - bb;
-      });
-      layers[l] = ln;
-    }
-  }
-
-  var positions = {};
-  for (var l = 0; l <= maxL; l++) {
-    var ns = layers[l] || [];
-    var totalH = ns.length * nh + (ns.length - 1) * ngap;
-    var startY = -totalH / 2;
-    ns.forEach(function(id, i) { positions[id] = { x: l * (nw + lgap), y: startY + i * (nh + ngap), layer: l }; });
-  }
-  return { positions: positions, edges: myEdges, maxLayer: maxL, layers: layers };
-}
-
-// ── View Switching ──
-function switchView(view) {
-  currentView = view; selectedNode = null; closePanel();
-  document.querySelectorAll(".vtab").forEach(function(t) { t.classList.toggle("active", t.dataset.view === view); });
-  var ctrl = document.getElementById("controls");
-  if (view === "overview") {
-    ctrl.innerHTML =
-      '<input type="text" id="search-box" placeholder="Search KCs..." oninput="onOverviewSearch(this.value)">' +
-      '<button class="fbtn" id="gwBtn" onclick="toggleGW()">Gateways Only</button>';
-    renderOverview();
-  } else {
-    ctrl.innerHTML =
-      '<input type="text" id="search-box" placeholder="Search for a KC..." oninput="onNeighborhoodSearch(this.value)">' +
-      '<select class="ctrl-select" id="hop-select" onchange="renderNeighborhoodIfSelected()"><option value="2">2 hops</option><option value="3" selected>3 hops</option><option value="4">4 hops</option><option value="99">Full chain</option></select>';
-    renderNeighborhoodEmpty();
-  }
-}
-
-function onOverviewSearch(v) { searchTerm = v.toLowerCase().trim(); applyOverviewFilters(); }
-function toggleGW() { gatewayOnly = !gatewayOnly; document.getElementById("gwBtn").classList.toggle("on"); applyOverviewFilters(); }
-
-// ── OVERVIEW ──
-var overviewState = {};
-
-function renderOverview() {
-  clearCanvas();
-  var PILL_W = 140, PILL_H = 26, LANE_PAD = 60;
-
-  // Layout each strand independently
-  var strandLayouts = {};
-  var strandBounds = {};
-  STRANDS.forEach(function(strand) {
-    var sNodes = DATA.nodes.filter(function(n) { return n.strand === strand; });
-    var sIds = sNodes.map(function(n) { return n.id; });
-    var sIdSet = new Set(sIds);
-    var sEdges = edgeList.filter(function(e) { return sIdSet.has(e.from) && sIdSet.has(e.to); });
-    var layout = dagLayout(sIds, sEdges, { nodeW: PILL_W, nodeH: PILL_H, layerGap: 50, nodeGap: 8 });
-    strandLayouts[strand] = layout;
-
-    // Compute bounds
-    var minY = Infinity, maxY = -Infinity;
-    Object.values(layout.positions).forEach(function(p) {
-      if (p.y < minY) minY = p.y;
-      if (p.y + PILL_H > maxY) maxY = p.y + PILL_H;
-    });
-    strandBounds[strand] = { minY: minY, maxY: maxY, height: maxY - minY };
+  // Initial positions: use grade for x, strand for y, with jitter
+  var strandY = { Composition: -1, Mechanics: 0, Discourse: 1 };
+  DATA.nodes.forEach(function(n) {
+    var gx = GRADE_X[n.grade] || 0;
+    n.x = (gx - 6) * 55 + (Math.random() - 0.5) * 30;
+    n.y = strandY[n.strand] * 180 + (Math.random() - 0.5) * 120;
+    n.r = n.gateway ? 6 : Math.max(2.5, Math.min(5, 2 + n.deg * 0.3));
   });
 
-  // Stack strands vertically
-  var yOffset = 0;
-  var strandY = {};
-  STRANDS.forEach(function(strand, i) {
-    var bounds = strandBounds[strand];
-    strandY[strand] = yOffset - bounds.minY;
-    yOffset += bounds.height + LANE_PAD;
-  });
+  // Build edge objects
+  var edgeObjs = edgeList.map(function(e) {
+    return { source: nodeMap[e.from], target: nodeMap[e.to], cross: e.crossStrand || false };
+  }).filter(function(e) { return e.source && e.target; });
 
-  // Merge all positions with y-offsets
-  var allPos = {};
-  STRANDS.forEach(function(strand) {
-    var layout = strandLayouts[strand];
-    var off = strandY[strand];
-    Object.keys(layout.positions).forEach(function(id) {
-      var p = layout.positions[id];
-      allPos[id] = { x: p.x, y: p.y + off, layer: p.layer };
-    });
-  });
+  // Draw edges
+  var gEdges = gMain.append("g");
+  var edgeLines = gEdges.selectAll("line").data(edgeObjs).join("line")
+    .attr("class", function(d) { return "edge-line" + (d.cross ? " cross" : ""); })
+    .attr("stroke", function(d) { return d.cross ? "#f59e0b" : "rgba(255,255,255,0.5)"; })
+    .attr("marker-end", function(d) { return d.cross ? "url(#arr-cross)" : "url(#arr)"; });
 
-  // Draw swim lane backgrounds and labels
-  var gBg = gMain.append("g").attr("class", "bg-group");
-  STRANDS.forEach(function(strand, i) {
-    var bounds = strandBounds[strand];
-    var off = strandY[strand];
-    var yTop = bounds.minY + off - 20;
-    var yBot = bounds.maxY + off + 20;
-    var maxX = 0;
-    Object.values(strandLayouts[strand].positions).forEach(function(p) { if (p.x + PILL_W > maxX) maxX = p.x + PILL_W; });
+  // Draw nodes
+  var gNodes = gMain.append("g");
+  var nodeDots = gNodes.selectAll("g.node-dot").data(DATA.nodes).join("g")
+    .attr("class", "node-dot");
 
-    gBg.append("rect").attr("class", "lane-bg")
-      .attr("x", -40).attr("y", yTop).attr("width", maxX + 80).attr("height", yBot - yTop)
-      .attr("fill", SC[strand]).attr("rx", 12);
+  // Outer glow circle
+  nodeDots.append("circle").attr("class", "glow")
+    .attr("r", function(d) { return d.r * 3; })
+    .attr("fill", function(d) { return SC[d.strand]; })
+    .attr("opacity", function(d) { return d.gateway ? 0.15 : 0.05; })
+    .attr("filter", "url(#glow)");
 
-    // Big background label
-    gBg.append("text").attr("class", "lane-label")
-      .attr("x", maxX / 2).attr("y", (yTop + yBot) / 2 + 16)
-      .attr("text-anchor", "middle").attr("fill", SC[strand])
-      .text(strand);
-
-    // Small label at left
-    gBg.append("text").attr("class", "lane-sub")
-      .attr("x", -30).attr("y", yTop + 14)
-      .attr("fill", SC[strand]).attr("text-anchor", "end")
-      .text(strand.toUpperCase());
-
-    // Divider
-    if (i > 0) {
-      var divY = yTop - LANE_PAD / 2;
-      gBg.append("line").attr("class", "lane-divider")
-        .attr("x1", -40).attr("y1", divY).attr("x2", maxX + 40).attr("y2", divY);
-    }
-  });
-
-  // Draw intra-strand edges
-  var gEdges = gMain.append("g").attr("class", "edge-group");
-  var allEdgeData = [];
-  STRANDS.forEach(function(strand) {
-    strandLayouts[strand].edges.forEach(function(e) {
-      allEdgeData.push({ from: e.from, to: e.to, cross: false, sp: allPos[e.from], tp: allPos[e.to] });
-    });
-  });
-
-  // Draw cross-strand edges
-  edgeList.forEach(function(e) {
-    if (e.crossStrand && allPos[e.from] && allPos[e.to]) {
-      allEdgeData.push({ from: e.from, to: e.to, cross: true, sp: allPos[e.from], tp: allPos[e.to] });
-    }
-  });
-
-  var edgePaths = gEdges.selectAll("path").data(allEdgeData).join("path")
-    .attr("class", function(d) { return "edge" + (d.cross ? " cross" : ""); })
-    .attr("stroke", function(d) {
-      if (d.cross) return "#f59e0b";
-      var n = nodeMap[d.from];
-      return n ? SC[n.strand] : "#555";
-    })
-    .attr("d", function(d) {
-      var sx = d.sp.x + PILL_W, sy = d.sp.y + PILL_H / 2;
-      var tx = d.tp.x, ty = d.tp.y + PILL_H / 2;
-      var dx = tx - sx, dy = ty - sy;
-      // For cross-strand or long vertical edges, use more pronounced curves
-      if (d.cross || Math.abs(dy) > 100) {
-        var cx1 = sx + Math.max(dx * 0.3, 30);
-        var cx2 = tx - Math.max(-dx * 0.3, 30);
-        return "M" + sx + "," + sy + " C" + cx1 + "," + sy + " " + cx2 + "," + ty + " " + tx + "," + ty;
-      }
-      if (Math.abs(dx) > 30) {
-        return "M" + sx + "," + sy + " C" + (sx + dx * 0.35) + "," + sy + " " + (sx + dx * 0.65) + "," + ty + " " + tx + "," + ty;
-      }
-      return "M" + sx + "," + sy + " C" + (sx + 25) + "," + sy + " " + (tx - 25) + "," + ty + " " + tx + "," + ty;
-    })
-    .attr("marker-end", function(d) { return d.cross ? "url(#arr-cross)" : "url(#arr-main)"; });
-
-  // Draw pill nodes
-  var gNodes = gMain.append("g").attr("class", "node-group");
-  var pills = gNodes.selectAll("g.pill").data(DATA.nodes).join("g")
-    .attr("class", "pill")
-    .attr("data-id", function(d) { return d.id; })
-    .attr("transform", function(d) {
-      var p = allPos[d.id];
-      return p ? "translate(" + p.x + "," + p.y + ")" : "translate(-9999,-9999)";
-    });
-
-  // Background rect
-  pills.append("rect")
-    .attr("class", function(d) { return d.gateway ? "pill-bg-gw" : "pill-bg"; })
-    .attr("width", PILL_W).attr("height", PILL_H)
-    .attr("fill", function(d) { return d.gateway ? "#1c1215" : "#13161e"; })
-    .attr("stroke", function(d) { return d.gateway ? "#ef4444" : SC[d.strand] + "55"; })
-    .attr("stroke-width", function(d) { return d.gateway ? 1.5 : 0.8; });
-
-  // Left color accent
-  pills.append("rect")
-    .attr("x", 0).attr("y", 0).attr("width", 2).attr("height", PILL_H)
+  // Core dot
+  nodeDots.append("circle").attr("class", "core")
+    .attr("r", function(d) { return d.r; })
     .attr("fill", function(d) { return d.gateway ? "#ef4444" : SC[d.strand]; })
-    .attr("opacity", function(d) { return d.gateway ? 0.9 : 0.5; })
-    .attr("rx", 1);
+    .attr("stroke", function(d) { return d.gateway ? "rgba(239,68,68,0.6)" : "rgba(255,255,255,0.1)"; })
+    .attr("stroke-width", function(d) { return d.gateway ? 1 : 0.5; });
 
-  // ID text
-  pills.append("text").attr("class", "pill-id")
-    .attr("x", 7).attr("y", 10)
-    .attr("fill", function(d) { return d.gateway ? "#ef4444" : "#555"; })
-    .text(function(d) { return d.id; });
+  // Label (hidden by default, shown on hover/select)
+  nodeDots.append("text").attr("class", "label")
+    .attr("x", function(d) { return d.r + 4; }).attr("y", 3)
+    .attr("font-size", 9).attr("fill", function(d) { return SC[d.strand]; })
+    .attr("opacity", 0.9)
+    .text(function(d) { return d.name.length > 28 ? d.name.substring(0, 27) + "\u2026" : d.name; });
 
-  // Name text
-  pills.append("text").attr("class", "pill-name")
-    .attr("x", 7).attr("y", 21)
-    .attr("fill", "#888")
-    .text(function(d) { return d.name.length > 20 ? d.name.substring(0, 19) + "\u2026" : d.name; });
-
-  // Gateway marker
-  pills.filter(function(d) { return d.gateway; }).append("text")
-    .attr("class", "pill-gw").attr("x", PILL_W - 5).attr("y", 10).attr("text-anchor", "end").text("GW");
-
-  // Interactions
-  pills.on("mouseenter", function(ev, d) {
+  // Tooltip
+  var tooltip = document.getElementById("tooltip");
+  nodeDots.on("mouseenter", function(ev, d) {
     if (selectedNode) return;
-    var connected = new Set([d.id]);
-    allEdgeData.forEach(function(e) {
-      if (e.from === d.id) connected.add(e.to);
-      if (e.to === d.id) connected.add(e.from);
-    });
-    pills.classed("hl", function(n) { return connected.has(n.id); })
-         .classed("dim", function(n) { return !connected.has(n.id); });
-    edgePaths.classed("hl", function(e) { return e.from === d.id || e.to === d.id; })
-             .classed("dim", function(e) { return e.from !== d.id && e.to !== d.id; });
+    highlightConnected(d);
+    showTooltip(ev, d);
+  }).on("mousemove", function(ev) {
+    tooltip.style.left = (ev.clientX + 14) + "px";
+    tooltip.style.top = (ev.clientY - 10) + "px";
   }).on("mouseleave", function() {
     if (selectedNode) return;
-    pills.classed("hl", false).classed("dim", false);
-    edgePaths.classed("hl", false).classed("dim", false);
+    resetHighlight();
+    tooltip.style.display = "none";
   }).on("click", function(ev, d) {
     ev.stopPropagation();
-    selectedNode = d;
-    var chain = getChain(d.id);
-    pills.classed("hl", function(n) { return chain.has(n.id); })
-         .classed("dim", function(n) { return !chain.has(n.id); })
-         .classed("sel", function(n) { return n.id === d.id; });
-    edgePaths.classed("hl", function(e) { return chain.has(e.from) && chain.has(e.to); })
-             .classed("dim", function(e) { return !(chain.has(e.from) && chain.has(e.to)); });
-    showPanel(d);
+    tooltip.style.display = "none";
+    selectNode(d);
   });
 
-  overviewState = { pills: pills, edgePaths: edgePaths, allPos: allPos, allEdgeData: allEdgeData };
-  ensureArrowDefs();
-  fitToView(allPos, PILL_W, PILL_H, 80);
-  applyOverviewFilters();
+  // Force simulation
+  simulation = d3.forceSimulation(DATA.nodes)
+    .force("link", d3.forceLink(edgeObjs).id(function(d) { return d.id; }).distance(function(d) {
+      // Shorter links within same grade, longer for cross-grade
+      if (d.source.grade === d.target.grade) return 20;
+      if (d.cross) return 80;
+      return 35;
+    }).strength(function(d) { return d.cross ? 0.15 : 0.5; }))
+    .force("charge", d3.forceManyBody().strength(function(d) { return d.gateway ? -40 : -18; }).distanceMax(250))
+    .force("x", d3.forceX(function(d) { return (GRADE_X[d.grade] - 6) * 60; }).strength(0.12))
+    .force("y", d3.forceY(function(d) {
+      var sy = { Composition: -180, Mechanics: 0, Discourse: 160 };
+      return sy[d.strand] || 0;
+    }).strength(0.08))
+    .force("collide", d3.forceCollide(function(d) { return d.r + 2; }).strength(0.7))
+    .alphaDecay(0.015)
+    .on("tick", function() {
+      edgeLines.attr("x1", function(d) { return d.source.x; }).attr("y1", function(d) { return d.source.y; })
+               .attr("x2", function(d) { return d.target.x; }).attr("y2", function(d) { return d.target.y; });
+      nodeDots.attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
+    });
+
+  // Drag
+  nodeDots.call(d3.drag()
+    .on("start", function(ev, d) { if (!ev.active) simulation.alphaTarget(0.1).restart(); d.fx = d.x; d.fy = d.y; })
+    .on("drag", function(ev, d) { d.fx = ev.x; d.fy = ev.y; })
+    .on("end", function(ev, d) { if (!ev.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+  );
+
+  // Store refs
+  window._nodes = nodeDots;
+  window._edges = edgeLines;
+  window._edgeObjs = edgeObjs;
+
+  // Fit view
+  svg.call(zoomB.transform, d3.zoomIdentity.translate(w / 2, h / 2).scale(1.2));
+  updateStats();
 }
 
-function applyOverviewFilters() {
-  if (!overviewState.pills) return;
-  var pills = overviewState.pills;
-  var edgePaths = overviewState.edgePaths;
+function showTooltip(ev, d) {
+  var tt = document.getElementById("tooltip");
+  tt.querySelector(".tt-id").textContent = d.id;
+  tt.querySelector(".tt-name").textContent = d.name;
+  tt.querySelector(".tt-meta").textContent = d.strand + " \u00B7 Grade " + d.grade + " \u00B7 " + d.type;
+  tt.querySelector(".tt-desc").textContent = d.description;
+  tt.querySelector(".tt-gw").textContent = d.gateway ? "GATEWAY \u2014 Blocks downstream learning" : "";
+  tt.querySelector(".tt-gw").style.display = d.gateway ? "block" : "none";
+  tt.style.display = "block";
+  tt.style.left = (ev.clientX + 14) + "px";
+  tt.style.top = (ev.clientY - 10) + "px";
+}
 
-  var visCount = 0;
-  var visibleIds = new Set();
-  pills.each(function(d) {
-    var vis = true;
-    if (gatewayOnly && !d.gateway) vis = false;
-    d3.select(this).style("display", vis ? null : "none");
-    if (vis) { visibleIds.add(d.id); visCount++; }
+function highlightConnected(d) {
+  var connected = new Set([d.id]);
+  window._edgeObjs.forEach(function(e) {
+    if (e.source.id === d.id) connected.add(e.target.id);
+    if (e.target.id === d.id) connected.add(e.source.id);
   });
-  edgePaths.each(function(d) {
-    d3.select(this).style("display", visibleIds.has(d.from) && visibleIds.has(d.to) ? null : "none");
-  });
+  window._nodes.classed("hl", function(n) { return connected.has(n.id); })
+               .classed("dim", function(n) { return !connected.has(n.id); });
+  window._edges.classed("hl", function(e) { return e.source.id === d.id || e.target.id === d.id; })
+               .classed("dim", function(e) { return e.source.id !== d.id && e.target.id !== d.id; });
+}
 
-  // Search highlighting
+function selectNode(d) {
+  selectedNode = d;
+  var chain = getChain(d.id);
+  window._nodes.classed("hl", function(n) { return chain.has(n.id); })
+               .classed("dim", function(n) { return !chain.has(n.id); })
+               .classed("sel", function(n) { return n.id === d.id; });
+  window._edges.classed("hl", function(e) { return chain.has(e.source.id) && chain.has(e.target.id); })
+               .classed("dim", function(e) { return !(chain.has(e.source.id) && chain.has(e.target.id)); });
+  showPanel(d);
+}
+
+function deselectNode() {
+  selectedNode = null;
+  resetHighlight();
+  closePanel();
+}
+
+function resetHighlight() {
+  window._nodes.classed("hl", false).classed("dim", false).classed("sel", false);
+  window._edges.classed("hl", false).classed("dim", false);
+}
+
+function getChain(id) {
+  var a = new Set(), d = new Set();
+  function up(i) { (prereqMap[i]||[]).forEach(function(p) { if (!a.has(p)) { a.add(p); up(p); } }); }
+  function down(i) { (depMap[i]||[]).forEach(function(c) { if (!d.has(c)) { d.add(c); down(c); } }); }
+  up(id); down(id);
+  var ch = new Set([id]); a.forEach(function(i) { ch.add(i); }); d.forEach(function(i) { ch.add(i); });
+  return ch;
+}
+
+// Filters
+function toggleStrand(el) {
+  var s = el.dataset.strand;
+  el.classList.toggle("on");
+  strandFilter.has(s) ? strandFilter.delete(s) : strandFilter.add(s);
+  applyFilters();
+}
+function toggleGW() {
+  gatewayOnly = !gatewayOnly;
+  document.getElementById("gwBtn").classList.toggle("on");
+  applyFilters();
+}
+function onSearch(v) {
+  searchTerm = v.toLowerCase().trim();
+  applyFilters();
+}
+
+function applyFilters() {
+  var vis = new Set();
+  window._nodes.each(function(d) {
+    var show = strandFilter.has(d.strand) && (!gatewayOnly || d.gateway);
+    d3.select(this).style("display", show ? null : "none");
+    if (show) vis.add(d.id);
+  });
+  window._edges.each(function(d) {
+    d3.select(this).style("display", vis.has(d.source.id) && vis.has(d.target.id) ? null : "none");
+  });
+  // Search
   if (searchTerm) {
-    pills.classed("search-match", function(d) {
-      return visibleIds.has(d.id) && (
-        d.name.toLowerCase().includes(searchTerm) ||
-        d.id.toLowerCase().includes(searchTerm) ||
-        d.description.toLowerCase().includes(searchTerm)
-      );
+    window._nodes.classed("search-hit", function(d) {
+      return vis.has(d.id) && (d.name.toLowerCase().includes(searchTerm) || d.id.toLowerCase().includes(searchTerm) || d.description.toLowerCase().includes(searchTerm));
     });
   } else {
-    pills.classed("search-match", false);
+    window._nodes.classed("search-hit", false);
   }
-
-  document.getElementById("view-info").textContent = visCount + " / " + DATA.nodes.length + " KCs \u00B7 " + edgeList.length + " edges";
+  updateStats();
 }
 
-// ── NEIGHBORHOOD VIEW ──
-var nbTarget = null;
-
-function onNeighborhoodSearch(val) {
-  var q = val.toLowerCase().trim();
-  var dd = document.getElementById("search-dropdown");
-  if (dd) dd.remove();
-  if (q.length < 2) return;
-
-  var results = DATA.nodes.filter(function(n) {
-    return n.id.toLowerCase().includes(q) || n.name.toLowerCase().includes(q);
-  }).slice(0, 10);
-  if (results.length === 0) return;
-
-  var dd = document.createElement("div");
-  dd.id = "search-dropdown";
-  dd.style.cssText = "position:fixed;top:46px;left:0;right:0;z-index:25;background:rgba(13,15,20,0.98);border-bottom:1px solid #1e2028;max-height:300px;overflow-y:auto;";
-  results.forEach(function(n) {
-    var item = document.createElement("div");
-    item.style.cssText = "padding:8px 16px;cursor:pointer;font-size:13px;color:#aaa;border-bottom:1px solid #111;";
-    item.innerHTML = "<span style='color:" + SC[n.strand] + ";font-family:monospace;font-size:11px;margin-right:8px'>" + n.id + "</span>" + n.name;
-    item.onmouseenter = function() { item.style.background = "#1a1d25"; item.style.color = "#fff"; };
-    item.onmouseleave = function() { item.style.background = "none"; item.style.color = "#aaa"; };
-    item.onclick = function() { nbTarget = n; document.getElementById("search-box").value = n.id + ": " + n.name; dd.remove(); renderNeighborhood(n); };
-    dd.appendChild(item);
-  });
-  document.body.appendChild(dd);
-  setTimeout(function() {
-    document.addEventListener("click", function h(e) {
-      if (!dd.contains(e.target) && e.target.id !== "search-box") { dd.remove(); document.removeEventListener("click", h); }
-    });
-  }, 10);
-}
-
-function renderNeighborhoodIfSelected() { if (nbTarget) renderNeighborhood(nbTarget); }
-
-function renderNeighborhoodEmpty() {
-  clearCanvas();
-  var t = gMain.append("text").attr("x", 0).attr("y", 0).attr("text-anchor", "middle").attr("dominant-baseline", "middle").attr("fill", "#333").attr("font-size", 16);
-  t.append("tspan").attr("x", 0).attr("dy", 0).text("Search for a KC above to explore its neighborhood");
-  t.append("tspan").attr("x", 0).attr("dy", 24).attr("font-size", 13).attr("fill", "#222").text("See what a student needs before \u2014 and what it unlocks after");
-  var w = window.innerWidth, h = window.innerHeight - 46;
-  svg.call(zoomBehavior.transform, d3.zoomIdentity.translate(w / 2, h / 2));
-  document.getElementById("view-info").textContent = "Type a KC name or ID to begin";
-}
-
-function renderNeighborhood(center) {
-  clearCanvas();
-  var maxH = parseInt(document.getElementById("hop-select").value) || 3;
-  var ancs = new Set(), descs = new Set();
-  function up(id, d) { if (d > maxH) return; (prereqMap[id]||[]).forEach(function(p) { if (!ancs.has(p)) { ancs.add(p); up(p, d+1); } }); }
-  function down(id, d) { if (d > maxH) return; (depMap[id]||[]).forEach(function(c) { if (!descs.has(c)) { descs.add(c); down(c, d+1); } }); }
-  up(center.id, 1); down(center.id, 1);
-
-  var allIds = [center.id]; ancs.forEach(function(id) { allIds.push(id); }); descs.forEach(function(id) { allIds.push(id); });
-  allIds = Array.from(new Set(allIds));
-  var allNodes = allIds.map(function(id) { return nodeMap[id]; }).filter(Boolean);
-  var relEdges = edgeList.filter(function(e) { var s = new Set(allIds); return s.has(e.from) && s.has(e.to); });
-
-  var NW = 180, NH = 52;
-  var layout = dagLayout(allIds, relEdges, { nodeW: NW, nodeH: NH, layerGap: 70, nodeGap: 16 });
-  var pos = layout.positions;
-
-  var gE = gMain.append("g"), gN = gMain.append("g");
-  var edgeData = layout.edges.map(function(e) {
-    return { from: e.from, to: e.to, cross: e.crossStrand || false, sp: pos[e.from], tp: pos[e.to] };
-  }).filter(function(e) { return e.sp && e.tp; });
-
-  var ePaths = gE.selectAll("path").data(edgeData).join("path")
-    .attr("class", function(d) { return "edge" + (d.cross ? " cross" : ""); })
-    .attr("stroke", function(d) { return d.cross ? "#f59e0b" : "#666"; })
-    .attr("d", function(d) {
-      var sx = d.sp.x + NW, sy = d.sp.y + NH / 2, tx = d.tp.x, ty = d.tp.y + NH / 2, dx = tx - sx;
-      if (Math.abs(dx) > 30) return "M"+sx+","+sy+" C"+(sx+dx*0.4)+","+sy+" "+(sx+dx*0.6)+","+ty+" "+tx+","+ty;
-      return "M"+sx+","+sy+" C"+(sx+30)+","+sy+" "+(tx-30)+","+ty+" "+tx+","+ty;
-    })
-    .attr("marker-end", function(d) { return d.cross ? "url(#arr-cross)" : "url(#arr-main)"; });
-
-  var nEls = gN.selectAll("g.nnode").data(allNodes).join("g")
-    .attr("class", "nnode")
-    .attr("transform", function(d) { var p = pos[d.id]; return p ? "translate("+p.x+","+p.y+")" : ""; });
-
-  nEls.append("rect").attr("width", NW).attr("height", NH).attr("rx", 6)
-    .attr("fill", function(d) { return d.id === center.id ? SC[d.strand]+"30" : "#161922"; })
-    .attr("stroke", function(d) { return d.id === center.id ? SC[d.strand] : d.gateway ? "#ef4444" : SC[d.strand]+"44"; })
-    .attr("stroke-width", function(d) { return d.id === center.id ? 2 : 1; });
-
-  nEls.append("rect").attr("x",0).attr("y",0).attr("width",3).attr("height",NH)
-    .attr("fill", function(d) { return SC[d.strand]; }).attr("rx",1)
-    .attr("opacity", function(d) { return d.id === center.id ? 1 : 0.5; });
-
-  nEls.append("text").attr("class","node-id-text").attr("x",10).attr("y",14).text(function(d) { return d.id; });
-  nEls.filter(function(d) { return d.gateway; }).append("text").attr("class","gw-indicator").attr("x",NW-8).attr("y",14).attr("text-anchor","end").text("GW");
-  nEls.append("text").attr("class","node-name-text").attr("x",10).attr("y",30)
-    .attr("fill", function(d) { return d.id === center.id ? "#fff" : "#ccc"; })
-    .attr("font-weight", function(d) { return d.id === center.id ? "700" : "500"; })
-    .text(function(d) { return d.name.length > 24 ? d.name.substring(0,23)+"\u2026" : d.name; });
-  nEls.append("text").attr("class","node-type-text").attr("x",10).attr("y",44)
-    .text(function(d) {
-      var r = ""; if (d.id === center.id) r = " \u2605 SELECTED"; else if (ancs.has(d.id)) r = " \u2190 prereq"; else if (descs.has(d.id)) r = " \u2192 unlocks";
-      return d.strand + " \u00B7 " + d.type + r;
-    });
-
-  nEls.on("mouseenter", function(ev,d) {
-    if (selectedNode) return;
-    var c = new Set([d.id]);
-    edgeData.forEach(function(e) { if (e.from===d.id) c.add(e.to); if (e.to===d.id) c.add(e.from); });
-    nEls.classed("hl", function(n) { return c.has(n.id); }).classed("dim", function(n) { return !c.has(n.id); });
-    ePaths.classed("hl", function(e) { return e.from===d.id||e.to===d.id; }).classed("dim", function(e) { return e.from!==d.id&&e.to!==d.id; });
-  }).on("mouseleave", function() {
-    if (selectedNode) return;
-    nEls.classed("hl",false).classed("dim",false); ePaths.classed("hl",false).classed("dim",false);
-  }).on("click", function(ev,d) {
-    ev.stopPropagation(); selectedNode = d;
-    var chain = getChain(d.id);
-    nEls.classed("hl", function(n) { return chain.has(n.id); }).classed("dim", function(n) { return !chain.has(n.id); }).classed("sel", function(n) { return n.id===d.id; });
-    ePaths.classed("hl", function(e) { return chain.has(e.from)&&chain.has(e.to); }).classed("dim", function(e) { return !(chain.has(e.from)&&chain.has(e.to)); });
-    showPanel(d);
-  });
-
-  ensureArrowDefs();
-  fitToView(pos, NW, NH, 60);
-  showPanel(center);
-  document.getElementById("view-info").textContent = center.id + ": " + ancs.size + " prerequisites, " + descs.size + " dependents";
-}
-
-// ── Shared Helpers ──
-function getChain(id) {
-  var anc = new Set(), desc = new Set();
-  function up(i) { (prereqMap[i]||[]).forEach(function(p) { if (!anc.has(p)) { anc.add(p); up(p); } }); }
-  function down(i) { (depMap[i]||[]).forEach(function(c) { if (!desc.has(c)) { desc.add(c); down(c); } }); }
-  up(id); down(id);
-  var chain = new Set([id]); anc.forEach(function(i) { chain.add(i); }); desc.forEach(function(i) { chain.add(i); });
-  return chain;
-}
-
-function clearCanvas() {
-  gMain.selectAll("*:not(.bg-click)").remove();
-  if (!gMain.select(".bg-click").node()) {
-    gMain.append("rect").attr("class","bg-click").attr("x",-90000).attr("y",-90000).attr("width",180000).attr("height",180000).attr("fill","transparent");
-  }
-}
-
-function ensureArrowDefs() {
-  if (svg.select("defs").empty()) svg.append("defs");
-  var defs = svg.select("defs");
-  if (defs.select("#arr-main").empty()) {
-    [["arr-main","#555"],["arr-cross","#f59e0b"],["arr-main-hi","#bbb"],["arr-cross-hi","#fbbf24"]].forEach(function(p) {
-      defs.append("marker").attr("id",p[0]).attr("viewBox","0 0 8 6").attr("refX",8).attr("refY",3)
-        .attr("markerWidth",6).attr("markerHeight",4).attr("orient","auto")
-        .append("path").attr("d","M0,0.5L7,3L0,5.5").attr("fill",p[1]);
-    });
-  }
-}
-
-function fitToView(positions, nw, nh, pad) {
-  var xs = [], ys = [];
-  Object.values(positions).forEach(function(p) { xs.push(p.x, p.x+nw); ys.push(p.y, p.y+nh); });
-  if (xs.length === 0) return;
-  var bw = Math.max.apply(null,xs) - Math.min.apply(null,xs) + pad*2;
-  var bh = Math.max.apply(null,ys) - Math.min.apply(null,ys) + pad*2;
-  var w = window.innerWidth, h = window.innerHeight - 46;
-  var sc = Math.min(w/bw, h/bh, 1) * 0.88;
-  var cx = (Math.min.apply(null,xs)+Math.max.apply(null,xs))/2;
-  var cy = (Math.min.apply(null,ys)+Math.max.apply(null,ys))/2;
-  svg.transition().duration(300).call(zoomBehavior.transform, d3.zoomIdentity.translate(w/2-cx*sc, h/2-cy*sc).scale(sc));
+function updateStats() {
+  var v = 0;
+  if (window._nodes) window._nodes.each(function(d) { if (d3.select(this).style("display") !== "none") v++; });
+  document.getElementById("stats").textContent = v + " / " + (DATA ? DATA.nodes.length : 0) + " KCs";
 }
 
 function showPanel(d) {
@@ -695,9 +401,9 @@ function showPanel(d) {
   panel.querySelector(".p-name").textContent = d.name;
   var c = SC[d.strand];
   panel.querySelector(".p-badges").innerHTML =
-    "<span class='p-badge' style='background:"+c+"22;color:"+c+";border:1px solid "+c+"44'>"+d.strand+"</span>"+
-    "<span class='p-badge' style='background:#1e2028;color:#aaa;border:1px solid #333'>Grade "+d.grade+"</span>"+
-    "<span class='p-badge' style='background:#1e2028;color:#aaa;border:1px solid #333'>"+d.type+"</span>";
+    "<span class='p-badge' style='background:"+c+"18;color:"+c+";border:1px solid "+c+"33'>"+d.strand+"</span>"+
+    "<span class='p-badge' style='background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.08)'>Grade "+d.grade+"</span>"+
+    "<span class='p-badge' style='background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.08)'>"+d.type+"</span>";
   panel.querySelector(".p-desc").textContent = d.description;
   var gw = panel.querySelector(".p-gateway"); gw.style.display = d.gateway ? "block" : "none";
   if (d.gateway) gw.textContent = "GATEWAY KC \u2014 Failure blocks all downstream learning";
@@ -713,28 +419,15 @@ function showPanel(d) {
   dL.innerHTML = dN.map(function(n) { return "<li onclick=\"navTo('"+n.id+"')\"><span class='pdot' style='background:"+SC[n.strand]+"'></span>"+n.id+": "+n.name+"</li>"; }).join("");
 }
 
-function deselectNode() {
-  selectedNode = null;
-  gMain.selectAll(".pill,.nnode").classed("hl",false).classed("dim",false).classed("sel",false);
-  gMain.selectAll(".edge").classed("hl",false).classed("dim",false);
-  closePanel();
-}
 function closePanel() { document.getElementById("panel").classList.remove("open"); }
 
 window.navTo = function(id) {
   var n = nodeMap[id]; if (!n) return;
-  if (currentView === "neighborhood") {
-    nbTarget = n; document.getElementById("search-box").value = n.id+": "+n.name; renderNeighborhood(n);
-  } else {
-    selectedNode = n; showPanel(n);
-    // Pan to node
-    if (overviewState.allPos && overviewState.allPos[id]) {
-      var p = overviewState.allPos[id];
-      var k = d3.zoomTransform(svg.node()).k || 0.5;
-      var w = window.innerWidth, h = window.innerHeight - 46;
-      svg.transition().duration(300).call(zoomBehavior.transform, d3.zoomIdentity.translate(w/2-p.x*k, h/2-p.y*k).scale(k));
-    }
-  }
+  selectNode(n);
+  // Pan to node
+  var k = d3.zoomTransform(svg.node()).k || 1;
+  var w = window.innerWidth, h = window.innerHeight - 44;
+  svg.transition().duration(400).call(zoomB.transform, d3.zoomIdentity.translate(w/2-n.x*k, h/2-n.y*k).scale(k));
 };
 </script>
 </body>
